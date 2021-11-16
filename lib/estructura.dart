@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:geolocator/geolocator.dart';
+
 class HomePage extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
@@ -105,6 +107,12 @@ class _HomePageState extends State<HomePage> {
 
     request.files.add(picture);
 
+    Position position = await obtenerPosicionGeografica();
+
+    request.fields["longitud"] = position.longitude.toString();
+    request.fields["latitud"] = position.latitude.toString();
+    request.fields["altitud"] = position.altitude.toString();
+
     var response = await request.send();
 
     var responseData = await response.stream.toBytes();
@@ -113,9 +121,42 @@ class _HomePageState extends State<HomePage> {
 
     var jsonResponse = jsonDecode(rawResponse);
 
+    print(rawResponse);
+
     ImageResponse ir = ImageResponse(jsonResponse);
 
     return ir;
+  }
+
+  Future<Position> obtenerPosicionGeografica() async {
+    bool servicioHabilidado = await Geolocator.isLocationServiceEnabled();
+    //GPS esta encendido
+
+    if (servicioHabilidado) {
+      LocationPermission permisos = await Geolocator.checkPermission();
+
+      if (permisos == LocationPermission.denied ||
+          permisos == LocationPermission.deniedForever) {
+        permisos = await Geolocator.requestPermission();
+      }
+
+      if (permisos == LocationPermission.whileInUse ||
+          permisos == LocationPermission.always) {
+        Position position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.bestForNavigation);
+        return position;
+      }
+    }
+
+    return Position(
+        longitude: 0,
+        latitude: 0,
+        timestamp: DateTime.now(),
+        accuracy: 0,
+        altitude: 0,
+        heading: 0,
+        speed: 0,
+        speedAccuracy: 0);
   }
 }
 
